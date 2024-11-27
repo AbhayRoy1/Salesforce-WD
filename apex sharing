@@ -1,0 +1,106 @@
+trigger ContactAccessTrigger on Contact (before update, after insert, after update) {
+    if (Trigger.isAfter && (Trigger.isInsert || Trigger.isUpdate)) {
+        ContactAccessTriggerHandler.handleAfterInsertOrUpdate(Trigger.new);
+    }
+}
+
+
+public class ContactAccessTriggerHandler {
+
+   
+    public static void handleAfterInsertOrUpdate(List<Contact> contacts) {
+        Map<Id, Id> contactToUserMap = getContactToUserMap(contacts);
+        if (!contactToUserMap.isEmpty()) {
+            ContactAccessTriggerHelper.createContactShares(contactToUserMap);
+        }
+    }
+
+    // Helper method to build a map of contacts to users who have 'RSM Support' profile
+    private static Map<Id, Id> getContactToUserMap(List<Contact> contacts) {
+        Map<Id, Id> contactToUserMap = new Map<Id, Id>();
+
+        for (Contact contact : contacts) {
+            Id userId;
+            
+            // Check each selector field for a user ID
+            if (contact.Phone_Interview_Selector_1__c != null) {
+                userId = contact.Phone_Interview_Selector_1__c;
+            } 
+ 		if (contact.Phone_Interview_Selector_2__c != null) {
+                userId = contact.Phone_Interview_Selector_2__c;
+            } 
+		 if (contact.Application_Review_Selector__c != null) {
+                userId = contact.Application_Review_Selector__c;
+            }
+
+            if (userId != null) {
+                // Query for the user's profile name to check if it is 'RSM Support'
+                User taggedUser = [SELECT Id, Profile.Name FROM User WHERE Id = :userId LIMIT 1];
+                if (taggedUser.Profile.Name == 'RSM Support') {
+                    contactToUserMap.put(contact.Id, taggedUser.Id);
+                }
+            }
+        }
+        return contactToUserMap;
+    }
+}
+
+
+public class ContactAccessTriggerHelper {
+
+    // Method to create ContactShares for the given map of Contact IDs to User IDs
+    public static void createContactShares(Map<Id, Id> contactToUserMap) {
+        List<ContactShare> contactShares = new List<ContactShare>();
+        
+        for (Id contactId : contactToUserMap.keySet()) {
+            ContactShare shareRecord = new ContactShare();
+            shareRecord.ContactId = contactId;
+            shareRecord.UserOrGroupId = contactToUserMap.get(contactId);
+            shareRecord.ContactAccessLevel = 'Edit';
+            shareRecord.RowCause = Schema.ContactShare.RowCause.Manual;
+            contactShares.add(shareRecord);
+        }
+        
+        // Insert all contact shares in a single DML operation to optimize performance
+        if (!contactShares.isEmpty()) {
+            insert contactShares;
+        }
+    }
+}
+
+
+trigger ContactAccessTrigger on Contact (before update ,after insert, after update) {
+    Set<Id> userIdsWithAccess = new Set<Id>();
+    Map<Id, Id> contactToUserMap = new Map<Id, Id>();
+    for (Contact contact : Trigger.new) {
+       
+      
+       Id userId;
+        if (contact.Phone_Interview_Selector_1__c != null) {
+             userId = contact.Phone_Interview_Selector_1__c;
+        }
+        if (contact.Phone_Interview_Selector_2__c != null) {
+            userId = contact.Phone_Interview_Selector_2__c;
+        }
+        if (contact.Application_Review_Selector__c != null) {
+            userId = contact.Application_Review_Selector__c;
+        } 
+    
+        if (userId != null) {
+            User taggedUser = [SELECT Id, Profile.Name FROM User WHERE Id = :userId LIMIT 1];
+            if (taggedUser.Profile.Name == 'RSM Support') {
+                userIdsWithAccess.add(taggedUser.Id);
+                contactToUserMap.put(contact.Id, taggedUser.Id);
+            }
+        }
+    }
+    if (!contactToUserMap.isEmpty()) {
+       
+       
+     	ContactAccessTriggerHelper.createContactShares(contactToUserMap);
+      
+      
+    }
+}
+
+
