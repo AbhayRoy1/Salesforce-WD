@@ -1,0 +1,19 @@
+auto triger the approval process 
+defaut behaviour  --->  https://www.youtube.com/watch?v=i7n73VwROuk
+ap is not evaluated automatically for any record untill you click submit for approval button 
+
+
+
+
+
+trigger nameoftrigger on nameofobj (after insert ,after update ){
+for(nameofobj varriable :trigger.new){
+if (varriable.apinameofprice < X  )// condition is not triggered if they does not have entry criteria 
+
+Id objId= record.Id;
+Approval.ProcessSubmitRequest procreq = new Approval.processSubmitRequest();
+procreq.setObjetId( record.Id);
+Approval.processResult res =Approval.process(procreq);
+Boolean isSucess= res.isSucess();
+}
+}
